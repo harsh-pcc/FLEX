@@ -50,19 +50,29 @@
     [self.tableView registerClass:[FLEXSystemLogTableViewCell class] forCellReuseIdentifier:kFLEXSystemLogTableViewCellIdentifier];
     self.tableView.separatorStyle = UITableViewCellSeparatorStyleNone;
     self.title = @"Loading...";
+
     
-    UIBarButtonItem *scrollDown = [[UIBarButtonItem alloc] initWithTitle:@" ⬇︎ "
+
+    
+    UIBarButtonItem *scrollUp = [[UIBarButtonItem alloc] initWithTitle:@"⬆"
+                                                                   style:UIBarButtonItemStylePlain
+                                                                  target:self
+                                                                  action:@selector(scrollToFirstRow)];
+    UIBarButtonItem *scrollDown = [[UIBarButtonItem alloc] initWithTitle:@"⬇"
                                                                    style:UIBarButtonItemStylePlain
                                                                   target:self
                                                                   action:@selector(scrollToLastRow)];
-    UIBarButtonItem *settings = [[UIBarButtonItem alloc] initWithTitle:@"Settings"
+    UIBarButtonItem *settings = [[UIBarButtonItem alloc] initWithTitle:@"⚙️"
                                                                  style:UIBarButtonItemStylePlain
                                                                 target:self
                                                                 action:@selector(showLogSettings)];
+    UIBarButtonItem *share = [[UIBarButtonItem alloc] initWithBarButtonSystemItem:UIBarButtonSystemItemAction
+                                                                           target:self
+                                                                           action:@selector(shareLogs)];
     if (FLEXOSLogAvailable()) {
-        self.navigationItem.rightBarButtonItems = @[scrollDown, settings];
+        self.navigationItem.rightBarButtonItems = @[share, scrollUp, scrollDown ,settings];
     } else {
-        self.navigationItem.rightBarButtonItem = scrollDown;
+        self.navigationItem.rightBarButtonItems = @[share, scrollUp, scrollDown];
     }
     
     self.searchController = [[UISearchController alloc] initWithSearchResultsController:nil];
@@ -88,6 +98,14 @@
     }
 }
 
+- (void)scrollToFirstRow
+{
+    NSInteger numberOfRows = [self.tableView numberOfRowsInSection:0];
+    if (numberOfRows > 0) {
+        NSIndexPath *lastIndexPath = [NSIndexPath indexPathForRow:0 inSection:0];
+        [self.tableView scrollToRowAtIndexPath:lastIndexPath atScrollPosition:UITableViewScrollPositionBottom animated:YES];
+    }}
+
 - (void)showLogSettings
 {
     FLEXOSLogController *logController = (FLEXOSLogController *)self.logController;
@@ -107,6 +125,60 @@
     [settings addAction:[UIAlertAction actionWithTitle:@"Dismiss" style:UIAlertActionStyleCancel handler:nil]];
     
     [self presentViewController:settings animated:YES completion:nil];
+}
+
+- (void)shareLogs
+{
+    [self deleteLogFile];
+    for(FLEXSystemLogMessage *logMessage in self.logMessages) {
+        NSString *someMessage = [NSString stringWithFormat:@"%@: %@\n", [FLEXSystemLogTableViewCell logTimeStringFromDate:logMessage.date], logMessage.messageText];
+        append(someMessage);
+    }
+    
+    NSURL *file = [[NSURL alloc] initFileURLWithPath:filePath() isDirectory:false];
+    
+    NSArray *activityItems = @[file];
+    UIActivityViewController *activityViewControntroller = [[UIActivityViewController alloc] initWithActivityItems:activityItems applicationActivities:nil];
+    
+    
+    if (UI_USER_INTERFACE_IDIOM() == UIUserInterfaceIdiomPad) {
+        activityViewControntroller.popoverPresentationController.sourceView = self.view;
+        activityViewControntroller.popoverPresentationController.sourceRect = CGRectMake(self.view.bounds.size.width/2, self.view.bounds.size.height/4, 0, 0);
+    }
+    [self presentViewController:activityViewControntroller animated:true completion:nil];
+
+}
+
+NSString* filePath() {
+    NSArray *paths = NSSearchPathForDirectoriesInDomains(NSDocumentDirectory, NSUserDomainMask, YES);
+    NSString *documentsDirectory = [paths objectAtIndex:0];
+    NSString *path = [documentsDirectory stringByAppendingPathComponent:@"logfile.log"];
+    return path;
+}
+
+void append(NSString *msg){
+    // get path to Documents/somefile.txt
+    NSString *path = filePath();
+    // create if needed
+    if (![[NSFileManager defaultManager] fileExistsAtPath:path]){
+        fprintf(stderr,"Creating file at %s",[path UTF8String]);
+        [[NSData data] writeToFile:path atomically:YES];
+    }
+    // append
+    NSFileHandle *handle = [NSFileHandle fileHandleForWritingAtPath:path];
+    [handle truncateFileAtOffset:[handle seekToEndOfFile]];
+    [handle writeData:[msg dataUsingEncoding:NSUTF8StringEncoding]];
+    [handle closeFile];
+}
+
+- (void)deleteLogFile {
+    // get path to Documents/somefile.txt
+    NSError *error = nil;
+    NSString *path = filePath();
+    // create if needed
+    if (![[NSFileManager defaultManager] fileExistsAtPath:path]){
+        [[NSFileManager defaultManager] removeItemAtPath:path error:&error];
+    }
 }
 
 #pragma mark - Table view data source

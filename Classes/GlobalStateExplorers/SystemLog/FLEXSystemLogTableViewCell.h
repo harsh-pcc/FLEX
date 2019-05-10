@@ -19,5 +19,6 @@ extern NSString *const kFLEXSystemLogTableViewCellIdentifier;
 
 + (NSString *)displayedTextForLogMessage:(FLEXSystemLogMessage *)logMessage;
 + (CGFloat)preferredHeightForLogMessage:(FLEXSystemLogMessage *)logMessage inWidth:(CGFloat)width;
++ (NSString *)logTimeStringFromDate:(NSDate *)date;
 
 @end
